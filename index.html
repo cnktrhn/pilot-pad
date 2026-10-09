@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Virtual Wings – A320 Pilot Pad</title>
+<meta name="description" content="Free web EFB / kneeboard for MSFS: SimBrief import, flight data, performance, checklist and a pen-friendly notepad. By Virtual Wings.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#06142e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="jspdf.umd.min.js" defer></script>
+<style>
+:root{
+  --bg:#06142e; --panel:#0a1f44; --panel2:#0d2750; --field:#04112a;
+  --sky:#29a8ff; --sky2:#7cc8ff; --line:rgba(41,168,255,.28);
+  --text:#e8f1ff; --mute:#8fa6c8; --ok:#3ddc97; --warn:#ffb547; --bad:#ff6b6b;
+  --fn:"Barlow","Segoe UI",system-ui,Arial,sans-serif; --fc:"Barlow Semi Condensed","Barlow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fn);-webkit-text-size-adjust:100%}
+body{min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:14px;padding:10px 18px;padding-top:calc(10px + env(safe-area-inset-top));background:linear-gradient(180deg,#0a1f44,#07183a);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand img{width:42px;height:42px;flex:none}
+.brand b{display:block;font-family:var(--fc);font-weight:700;letter-spacing:.14em;font-size:17px;line-height:1.05}
+.brand b i{font-style:normal;color:var(--sky)}
+.brand small{display:block;color:var(--mute);font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+.sp{flex:1}
+.clock{text-align:right;font-family:var(--fc);font-variant-numeric:tabular-nums}
+.clock .z{font-size:26px;font-weight:700;letter-spacing:.06em;line-height:1}
+.clock .z small{font-size:13px;color:var(--sky);margin-left:3px}
+.clock .l{font-size:12px;color:var(--mute);letter-spacing:.08em;margin-top:3px}
+.chip{border:1px solid var(--line);background:var(--field);color:var(--sky2);border-radius:999px;padding:7px 13px;font-family:var(--fc);font-weight:600;font-size:13px;letter-spacing:.08em;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--sky);color:#04112a;border-color:var(--sky)}
+.chip[hidden]{display:none}
+
+/* tabs */
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;padding:8px 14px;background:rgba(6,20,46,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{-webkit-appearance:none;appearance:none;-webkit-user-select:none;user-select:none;flex:1 0 auto;min-width:110px;text-align:center;padding:11px 16px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--mute);font-family:var(--fc);font-weight:700;font-size:15px;letter-spacing:.14em;cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab[aria-selected=true]{background:var(--panel2);color:#fff;border-color:var(--sky);box-shadow:0 0 0 1px rgba(41,168,255,.25) inset,0 6px 18px rgba(41,168,255,.12)}
+
+main{max-width:1320px;margin:0 auto;padding:16px 14px 90px}
+section.pane{display:none}
+section.pane.on{display:block}
+
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px}
+.card.wide{grid-column:1/-1}
+.card h2{margin:0 0 12px;font-family:var(--fc);font-size:14px;font-weight:700;letter-spacing:.16em;color:var(--sky);display:flex;align-items:center;gap:10px}
+.card h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.fields{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+.fields .span2{grid-column:span 2}.fields .full{grid-column:1/-1}
+label.f{display:block}
+label.f span{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--mute);text-transform:uppercase;margin:0 0 4px 2px}
+input,select,textarea{width:100%;background:var(--field);border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:16px;font-weight:600;outline:none;transition:border-color .15s,box-shadow .15s}
+input::placeholder,textarea::placeholder{color:#4d6490;font-weight:500}
+input:focus,select:focus,textarea:focus{border-color:var(--sky);box-shadow:0 0 0 3px rgba(41,168,255,.18)}
+input.u,textarea.u{text-transform:uppercase}
+textarea{resize:vertical;min-height:84px;font-family:inherit;line-height:1.35}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--sky) 50%),linear-gradient(135deg,var(--sky) 50%,transparent 50%);background-position:calc(100% - 18px) 52%,calc(100% - 12px) 52%;background-size:6px 6px;background-repeat:no-repeat;padding-right:32px}
+
+.btn{background:var(--sky);color:#04112a;border:0;border-radius:10px;padding:11px 18px;font-family:var(--fc);font-weight:700;font-size:15px;letter-spacing:.1em;cursor:pointer;white-space:nowrap}
+.btn:hover{filter:brightness(1.1)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--sky2);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--panel2);filter:none}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid rgba(255,107,107,.4)}
+.btn:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.row .grow{flex:1;min-width:180px}
+.hint{color:var(--mute);font-size:13px;margin:8px 2px 0;line-height:1.4}
+.badge{display:inline-block;border:1px solid var(--line);color:var(--sky2);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:.1em;margin-left:6px;vertical-align:middle}
+
+/* OOOI */
+.oooi{display:grid;gap:10px;grid-template-columns:repeat(4,1fr)}
+.oooi .t{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:10px 10px 12px;text-align:center}
+.oooi .t b{display:block;font-family:var(--fc);font-size:13px;letter-spacing:.2em;color:var(--sky)}
+.oooi .t input{text-align:center;font-family:var(--fc);font-size:19px;letter-spacing:.02em;border:0;background:transparent;padding:6px 0;box-shadow:none;font-variant-numeric:tabular-nums}
+.oooi .t button{width:100%;margin-top:2px;padding:7px;font-size:12px}
+.sum{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-family:var(--fc);color:var(--mute);font-size:13px;letter-spacing:.1em}
+.sum b{color:var(--text);font-size:20px;margin-left:6px;font-variant-numeric:tabular-nums}
+
+/* wind result */
+.wres{margin-top:10px;font-family:var(--fc);font-weight:600;font-size:15px;letter-spacing:.06em;min-height:22px}
+.wres .hw{color:var(--ok)} .wres .tw{color:var(--bad)} .wres .xw{color:var(--warn)}
+
+/* notepad */
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tools .grp{display:flex;gap:6px;align-items:center;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:5px}
+.tbtn{border:0;background:transparent;color:var(--sky2);border-radius:8px;padding:9px 13px;font-family:var(--fc);font-weight:700;font-size:14px;letter-spacing:.08em;cursor:pointer}
+.tbtn[aria-pressed=true]{background:var(--sky);color:#04112a}
+.tbtn:hover{background:var(--panel2)} .tbtn[aria-pressed=true]:hover{background:var(--sky)}
+.sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0;outline:1px solid rgba(255,255,255,.25)}
+.sw[aria-pressed=true]{border-color:var(--sky);outline-color:#fff}
+.tools select{width:auto;padding:9px 30px 9px 12px;font-size:14px}
+.tools input[type=range]{width:96px;padding:0;accent-color:var(--sky);border:0;background:transparent;box-shadow:none}
+.paper{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+#pad{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none}
+
+/* checklist */
+.chk{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.cl{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cl h3{margin:0;padding:12px 16px;font-family:var(--fc);font-size:14px;letter-spacing:.16em;color:var(--sky);display:flex;justify-content:space-between;background:var(--panel2)}
+.cl h3 em{font-style:normal;color:var(--mute);font-size:12px}
+.cl.done h3 em{color:var(--ok)}
+.cl label{display:flex;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid rgba(41,168,255,.12);cursor:pointer;font-weight:500}
+.cl label:active{background:var(--panel2)}
+.cl input{appearance:none;width:22px;height:22px;flex:none;border-radius:6px;border:2px solid var(--sky);padding:0;margin:0;background:transparent;display:grid;place-content:center;box-shadow:none}
+.cl input:checked{background:var(--ok);border-color:var(--ok)}
+.cl input:checked::after{content:"";width:6px;height:11px;border:solid #04112a;border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.cl input:checked+span{color:var(--mute);text-decoration:line-through;text-decoration-color:rgba(143,166,200,.5)}
+
+footer{max-width:1320px;margin:0 auto;padding:0 14px 40px;color:var(--mute);font-size:12.5px;line-height:1.5;text-align:center}
+footer a{color:var(--sky2);text-decoration:none}
+#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translate(-50%,30px);opacity:0;pointer-events:none;background:#0d2750;border:1px solid var(--sky);color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:.25s;z-index:50;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.warn{border-color:var(--warn)} #toast.bad{border-color:var(--bad)} #toast.ok{border-color:var(--ok)}
+
+@media (max-width:640px){
+  .top{flex-wrap:wrap;gap:8px}.clock .z{font-size:22px}
+  .brand img{width:36px;height:36px}.brand b{font-size:15px}
+  .oooi{grid-template-columns:repeat(2,1fr)}
+  .tab{min-width:92px;padding:10px 10px;font-size:13px}
+}
+@media print{.top,.tabs,.tools,footer,.btn{display:none!important}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <img alt="Virtual Wings" src="data:image/png;base64,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">
+    <div><b>VIRTUAL <i>WINGS</i></b><small>A320 Pilot Pad · EFB</small></div>
+  </div>
+  <div class="sp"></div>
+  <button class="chip" id="wakeBtn" title="Keep the screen on" aria-pressed="false">SCREEN ON</button>
+  <button class="chip" id="batt" hidden title="Device battery"></button>
+  <div class="clock"><div class="z"><span id="utc">--:--</span><small>Z</small></div><div class="l">LOCAL <span id="loc">--:--</span></div></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button class="tab" role="tab" data-tab="brief" aria-selected="true">BRIEFING</button>
+  <button class="tab" role="tab" data-tab="perf" aria-selected="false">PERFORMANCE</button>
+  <button class="tab" role="tab" data-tab="pad" aria-selected="false">KNEEBOARD</button>
+  <button class="tab" role="tab" data-tab="chk" aria-selected="false">CHECKLIST</button>
+</nav>
+
+<main>
+<!-- BRIEFING -->
+<section class="pane on" id="p-brief">
+  <div class="grid">
+    <div class="card wide">
+      <h2>SIMBRIEF IMPORT</h2>
+      <div class="row">
+        <label class="f grow"><span>SimBrief user ID or username</span><input id="simbriefID" data-f placeholder="e.g. 123456 or username" autocomplete="off" inputmode="text"></label>
+        <button class="btn" id="sbBtn">IMPORT OFP</button>
+      </div>
+      <p class="hint" id="sbMsg">Fetches your latest SimBrief flight plan: callsign, airports, runways, route, cruise level, weights and fuel.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>FLIGHT DATA</h2>
+      <div class="fields" id="fd"></div>
+    </div>
+
+    <div class="card">
+      <h2>TIMES (UTC)</h2>
+      <div class="oooi" id="oooi"></div>
+      <div class="sum"><span>BLOCK<b id="blk">--:--</b></span><span>AIR<b id="air">--:--</b></span></div>
+      <div class="row" style="margin-top:12px"><button class="btn ghost" id="tReset">RESET TIMES</button></div>
+    </div>
+
+    <div class="card">
+      <h2>WEATHER &amp; WIND</h2>
+      <div class="fields" id="wx"></div>
+      <div class="wres" id="wDep"></div>
+      <div class="wres" id="wArr"></div>
+      <p class="hint">Wind components are calculated from the runway number you enter (e.g. 27L).</p>
+    </div>
+
+    <div class="card wide">
+      <h2>REMARKS</h2>
+      <label class="f"><span>ATC clearance / remarks</span><textarea id="remarks" data-f placeholder="Clearance, frequencies, notes…"></textarea></label>
+    </div>
+  </div>
+</section>
+
+<!-- PERFORMANCE -->
+<section class="pane" id="p-perf">
+  <div class="grid">
+    <div class="card"><h2>WEIGHTS &amp; FUEL <span class="badge" id="units">KG</span></h2><div class="fields" id="wt"></div></div>
+    <div class="card"><h2>TAKEOFF</h2><div class="fields" id="to"></div></div>
+    <div class="card"><h2>LANDING</h2><div class="fields" id="ld"></div></div>
+    <div class="card"><h2>MISC</h2><div class="fields" id="ms"></div></div>
+  </div>
+  <p class="hint" style="text-align:center;margin-top:16px">Performance numbers are entered by you (from your MCDU, SimBrief or a performance tool). Nothing here is calculated for real-world use.</p>
+</section>
+
+<!-- KNEEBOARD -->
+<section class="pane" id="p-pad">
+  <div class="tools" id="tools">
+    <div class="grp">
+      <button class="tbtn" id="tPen" aria-pressed="true">PEN</button>
+      <button class="tbtn" id="tErase" aria-pressed="false">ERASER</button>
+    </div>
+    <div class="grp" id="cols"></div>
+    <div class="grp"><input type="range" id="size" min="1" max="12" value="3" aria-label="Pen size"></div>
+    <div class="grp"><button class="tbtn" id="tUndo">UNDO</button><button class="tbtn" id="tClear">CLEAR</button></div>
+    <div class="grp"><button class="tbtn" id="penOnly" aria-pressed="false" title="Ignore finger touches while drawing (palm rejection)">PEN ONLY</button></div>
+    <select id="tpl" aria-label="Paper"><option value="blank">Blank</option><option value="lined">Lined</option><option value="grid">Grid</option><option value="atc">ATC copy</option></select>
+    <div class="sp"></div>
+    <button class="btn ghost" id="expPng">SAVE PNG</button>
+    <button class="btn" id="expPdf">EXPORT PDF</button>
+  </div>
+  <div class="paper"><canvas id="pad" width="1600" height="1000"></canvas></div>
+  <p class="hint">Works with Apple Pencil, Surface Pen, stylus, mouse and touch. Your notes are saved automatically in this browser.</p>
+</section>
+
+<!-- CHECKLIST -->
+<section class="pane" id="p-chk">
+  <div class="row" style="justify-content:space-between;margin-bottom:14px">
+    <p class="hint" style="margin:0;flex:1;min-width:240px">Generic, simplified A320-family flow for sim use. Always follow your own aircraft add-on's checklist.</p>
+    <button class="btn danger" id="chkReset">RESET ALL</button>
+  </div>
+  <div class="chk" id="chkWrap"></div>
+</section>
+</main>
+
+<footer>
+  <div>Virtual Wings A320 Pilot Pad v1.1.1 · Free for MSFS 2020 &amp; 2024 · <a href="https://www.virtualwingsbycenk.com" target="_blank" rel="noopener">www.virtualwingsbycenk.com</a></div>
+  <div>For flight simulation only. Not for real-world navigation. Not affiliated with Microsoft, Asobo, Airbus, Fenix or SimBrief.</div>
+  <div style="margin-top:10px"><button class="btn ghost" id="newFlight" style="font-size:13px;padding:8px 14px">NEW FLIGHT (CLEAR ALL FIELDS)</button></div>
+</footer>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* Tabs: kept separate so they always work, even if another part of the app fails */
+(function(){
+  function sel(k){
+    var ok=false,tabs=document.querySelectorAll(".tab"),panes=document.querySelectorAll(".pane");
+    for(var i=0;i<panes.length;i++){if(panes[i].id==="p-"+k)ok=true}
+    if(!ok)k="brief";
+    for(var i=0;i<tabs.length;i++)tabs[i].setAttribute("aria-selected",tabs[i].getAttribute("data-tab")===k?"true":"false");
+    for(var i=0;i<panes.length;i++){if(panes[i].id==="p-"+k)panes[i].classList.add("on");else panes[i].classList.remove("on")}
+    try{localStorage.setItem("vwpp.tab",JSON.stringify(k))}catch(e){}
+    try{window.scrollTo(0,0)}catch(e){}
+    if(k==="pad"&&typeof window.vwPaint==="function"){try{window.vwPaint()}catch(e){}}
+  }
+  window.showTab=sel;
+  document.addEventListener("click",function(e){
+    var t=e.target&&e.target.closest?e.target.closest(".tab"):null;
+    if(t){e.preventDefault();sel(t.getAttribute("data-tab"))}
+  });
+  var start="brief";try{var v=localStorage.getItem("vwpp.tab");if(v)start=JSON.parse(v)}catch(e){}
+  sel(start);
+})();
+</script>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const LS={
+  get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+let tT;
+function toast(msg,kind){const t=$("toast");t.textContent=msg;t.className="show "+(kind||"");clearTimeout(tT);tT=setTimeout(()=>t.className="",3200)}
+
+/* ---------- clock ---------- */
+const p2=n=>String(n).padStart(2,"0");
+function tick(){const n=new Date();$("utc").textContent=p2(n.getUTCHours())+":"+p2(n.getUTCMinutes());$("loc").textContent=p2(n.getHours())+":"+p2(n.getMinutes())}
+tick();setInterval(tick,5000);
+
+/* ---------- field config ---------- */
+const F=(id,label,o)=>Object.assign({id,label},o||{});
+const CFG={
+ fd:[F("callsign","Callsign",{u:1,ph:"THY123"}),F("dep","Departure",{u:1,ph:"LTFM",max:4}),F("arr","Arrival",{u:1,ph:"LTAI",max:4}),F("altn","Alternate",{u:1,ph:"LTFJ",max:4}),
+     F("depRwy","Dep RWY",{u:1,ph:"35R",max:3}),F("arrRwy","Arr RWY",{u:1,ph:"36R",max:3}),F("sid","SID",{u:1}),F("star","STAR",{u:1}),
+     F("fl","Cruise FL",{u:1,ph:"FL360"}),F("squawk","Squawk",{ph:"2000",max:4,mode:"numeric"}),
+     F("route","Route",{ta:1,u:1,cls:"full",ph:"SID … AIRWAYS … STAR"})],
+ wx:[F("atis","ATIS",{u:1,ph:"A",max:2}),F("qnhDep","QNH dep",{ph:"1013"}),F("qnhArr","QNH arr",{ph:"1013"}),F("ta","TA / TL",{ph:"5000 / FL60"}),
+     F("wdDep","Dep wind °",{ph:"270",mode:"numeric"}),F("wsDep","Dep wind kt",{ph:"12",mode:"numeric"}),F("wdArr","Arr wind °",{ph:"310",mode:"numeric"}),F("wsArr","Arr wind kt",{ph:"18",mode:"numeric"})],
+ wt:[F("zfw","ZFW"),F("fuel","Block fuel"),F("tow","TOW"),F("ldw","Est. LDW"),F("cg","CG %",{ph:"26.0"}),F("pax","Pax",{mode:"numeric"})],
+ to:[F("toFlaps","T/O flaps",{sel:["","1+F","2","3"]}),F("flex","Flex °C / TOGA",{ph:"52"}),F("v1","V1",{mode:"numeric"}),F("vr","VR",{mode:"numeric"}),F("v2","V2",{mode:"numeric"}),F("ths","THS trim",{ph:"UP 1.5"}),F("toAcc","THR RED / ACC",{ph:"1500 / 1500"}),F("toBrake","Autobrake",{sel:["","RTO","MAX"],val:"toAb"})],
+ ld:[F("vapp","VAPP",{mode:"numeric"}),F("vls","VLS",{mode:"numeric"}),F("ldFlaps","Landing flaps",{sel:["","CONF 3","FULL"]}),F("ldBrake","Autobrake",{sel:["","LO","MED","MAX","OFF"]}),F("ldDist","Landing dist",{ph:"m"}),F("mda","DA / MDA",{ph:"ft"})],
+ ms:[F("mFreq","Frequencies",{ta:1,cls:"full",ph:"GND / TWR / APP / ATIS"}),F("mNotes","Notes",{ta:1,cls:"full",ph:"Anything else…"})]
+};
+const FIELD_IDS=[];
+function render(box,items){
+  const el=$(box);
+  items.forEach(c=>{
+    FIELD_IDS.push(c.id);
+    const l=document.createElement("label");l.className="f"+(c.cls?" "+c.cls:"");
+    const s=document.createElement("span");s.textContent=c.label;l.appendChild(s);
+    let i;
+    if(c.sel){i=document.createElement("select");c.sel.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v||"–";i.appendChild(o)})}
+    else if(c.ta){i=document.createElement("textarea");i.rows=2}
+    else{i=document.createElement("input");i.type="text";i.autocomplete="off";i.autocapitalize=c.u?"characters":"off";i.spellcheck=false;if(c.max)i.maxLength=c.max;if(c.mode)i.inputMode=c.mode}
+    i.id=c.id;i.dataset.f="1";if(c.ph)i.placeholder=c.ph;if(c.u)i.classList.add("u");
+    l.appendChild(i);el.appendChild(l);
+  });
+}
+["fd","wx","wt","to","ld","ms"].forEach(k=>render(k,CFG[k]));
+FIELD_IDS.push("simbriefID","remarks");
+
+/* OOOI */
+const TIMES=[["tOut","OUT"],["tOff","OFF"],["tOn","ON"],["tIn","IN"]];
+TIMES.forEach(([id,lab])=>{
+  FIELD_IDS.push(id);
+  const d=document.createElement("div");d.className="t";
+  d.innerHTML=`<b>${lab}</b><input id="${id}" data-f maxlength="5" inputmode="numeric" placeholder="--:--" aria-label="${lab} time"><button class="btn ghost" data-now="${id}">NOW</button>`;
+  $("oooi").appendChild(d);
+});
+
+/* ---------- persistence ---------- */
+const saved=LS.get("vwpp.fields",{});
+FIELD_IDS.forEach(id=>{const e=$(id);if(e&&saved[id]!=null)e.value=saved[id]});
+function saveFields(){const o={};FIELD_IDS.forEach(id=>{const e=$(id);if(e)o[id]=e.value});LS.set("vwpp.fields",o)}
+document.addEventListener("input",e=>{
+  const t=e.target;if(!t.dataset||!("f" in t.dataset))return;
+  if(t.classList.contains("u")){const s=t.selectionStart,v=t.value.toUpperCase();if(v!==t.value){t.value=v;try{t.setSelectionRange(s,s)}catch(_){}}}
+  saveFields();calc();
+});
+document.addEventListener("change",e=>{if(e.target.dataset&&("f" in e.target.dataset)){saveFields();calc()}});
+
+/* ---------- times ---------- */
+const nowHHMM=()=>{const n=new Date();return p2(n.getUTCHours())+":"+p2(n.getUTCMinutes())};
+const toMin=s=>{const m=/^(\d{1,2}):?(\d{2})$/.exec((s||"").trim());return m?(+m[1])*60+(+m[2]):null};
+const fmt=m=>m==null?"--:--":p2(Math.floor(m/60))+":"+p2(m%60);
+const diff=(a,b)=>{const x=toMin(a),y=toMin(b);if(x==null||y==null)return null;let d=y-x;if(d<0)d+=1440;return d};
+document.addEventListener("click",e=>{const b=e.target.closest("[data-now]");if(!b)return;$(b.dataset.now).value=nowHHMM();saveFields();calc()});
+$("tReset").onclick=()=>{TIMES.forEach(([id])=>$(id).value="");saveFields();calc()};
+
+/* ---------- wind components ---------- */
+function comp(rwy,dir,spd){
+  const m=/^(\d{1,2})/.exec((rwy||"").trim());const d=parseFloat(dir),s=parseFloat(spd);
+  if(!m||isNaN(d)||isNaN(s))return null;
+  const h=(+m[1])*10;const a=(d-h)*Math.PI/180;
+  const hw=Math.round(s*Math.cos(a)),xw=Math.round(s*Math.sin(a));
+  return {hw,xw};
+}
+function windLine(el,tag,r){
+  if(!r){el.innerHTML="";return}
+  const hw=r.hw>=0?`<span class="hw">HEADWIND ${r.hw} KT</span>`:`<span class="tw">TAILWIND ${-r.hw} KT</span>`;
+  const xw=r.xw===0?"":`<span class="xw">X-WIND ${Math.abs(r.xw)} KT ${r.xw>0?"FROM RIGHT":"FROM LEFT"}</span>`;
+  el.innerHTML=`${tag}: ${hw}${xw?" · "+xw:""}`;
+}
+function calc(){
+  $("blk").textContent=fmt(diff($("tOut").value,$("tIn").value));
+  $("air").textContent=fmt(diff($("tOff").value,$("tOn").value));
+  windLine($("wDep"),"DEP",comp($("depRwy").value,$("wdDep").value,$("wsDep").value));
+  windLine($("wArr"),"ARR",comp($("arrRwy").value,$("wdArr").value,$("wsArr").value));
+}
+
+/* ---------- SimBrief ---------- */
+const g=(o,p)=>p.split(".").reduce((a,k)=>a==null?undefined:a[k],o);
+const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n};
+function put(id,v){if(v==null||v==="")return;const e=$(id);if(e)e.value=String(v).toUpperCase()===String(v)||!e.classList.contains("u")?v:String(v).toUpperCase()}
+async function loadSimBrief(){
+  const v=$("simbriefID").value.trim();
+  if(!v){toast("Enter your SimBrief user ID or username","warn");$("simbriefID").focus();return}
+  const btn=$("sbBtn");btn.disabled=true;btn.textContent="LOADING…";
+  try{
+    const q=/^\d+$/.test(v)?"userid":"username";
+    const r=await fetch(`https://www.simbrief.com/api/xml.fetcher.php?${q}=${encodeURIComponent(v)}&json=1`);
+    if(!r.ok)throw new Error("SimBrief returned "+r.status);
+    const d=await r.json();
+    if(d.fetch&&d.fetch.status&&!/success/i.test(d.fetch.status))throw new Error(d.fetch.status);
+    const cs=g(d,"atc.callsign")||((g(d,"general.icao_airline")||"")+(g(d,"general.flight_number")||""));
+    put("callsign",cs);put("route",g(d,"general.route"));
+    put("dep",g(d,"origin.icao_code"));put("arr",g(d,"destination.icao_code"));
+    const alt=g(d,"alternate");put("altn",Array.isArray(alt)?(alt[0]||{}).icao_code:g(d,"alternate.icao_code"));
+    put("depRwy",g(d,"origin.plan_rwy"));put("arrRwy",g(d,"destination.plan_rwy"));
+    put("sid",g(d,"general.sid_ident"));put("star",g(d,"general.star_ident"));
+    const ia=num(g(d,"general.initial_altitude"));if(ia!=null)$("fl").value=ia>=1000?"FL"+p2(Math.round(ia/100)).padStart(3,"0"):"FL"+ia;
+    const units=(g(d,"params.units")||"").toString().toUpperCase().replace("LBS","LBS").replace("KGS","KG");
+    if(units)$("units").textContent=units;
+    put("zfw",g(d,"weights.est_zfw"));put("tow",g(d,"weights.est_tow"));put("ldw",g(d,"weights.est_ldw"));put("fuel",g(d,"fuel.plan_ramp"));
+    put("pax",g(d,"weights.pax_count"));
+    saveFields();calc();
+    $("sbMsg").textContent=`Imported ${cs||"flight plan"}: ${g(d,"origin.icao_code")||"????"} → ${g(d,"destination.icao_code")||"????"}`;
+    toast("OFP imported ✈","ok");
+  }catch(err){
+    console.error(err);
+    $("sbMsg").textContent="Could not load your flight plan. Check your ID/username and that you have generated a flight plan on SimBrief.";
+    toast("SimBrief import failed","bad");
+  }finally{btn.disabled=false;btn.textContent="IMPORT OFP"}
+}
+$("sbBtn").onclick=loadSimBrief;
+$("simbriefID").addEventListener("keydown",e=>{if(e.key==="Enter")loadSimBrief()});
+
+/* ---------- tabs ---------- */
+/* tab switching lives in its own script above */
+
+</script>
+<script>
+"use strict";
+/* ---------- kneeboard canvas ---------- */
+const CW=1600,CH=1000;
+const cv=$("pad"),cx=cv.getContext("2d");
+const COLORS=[["#111111","Black"],["#1d4ed8","Blue"],["#dc2626","Red"],["#15803d","Green"]];
+let strokes=LS.get("vwpp.strokes",[]),hist=[],cur=null,erasing=false;
+let color=LS.get("vwpp.color","#111111"),size=LS.get("vwpp.size",3),tool="pen",penOnly=LS.get("vwpp.penOnly",false),tpl=LS.get("vwpp.tpl","lined");
+let lastPt=null;
+
+COLORS.forEach(([c,n])=>{const b=document.createElement("button");b.className="sw";b.style.background=c;b.title=n;b.setAttribute("aria-label",n);b.setAttribute("aria-pressed",c===color);b.onclick=()=>{color=c;setTool("pen");LS.set("vwpp.color",c);[...$("cols").children].forEach(x=>x.setAttribute("aria-pressed",x===b))};$("cols").appendChild(b)});
+$("size").value=size;$("size").oninput=e=>{size=+e.target.value;LS.set("vwpp.size",size)};
+$("tpl").value=tpl;$("tpl").onchange=e=>{tpl=e.target.value;LS.set("vwpp.tpl",tpl);paint()};
+function setTool(t){tool=t;$("tPen").setAttribute("aria-pressed",t==="pen");$("tErase").setAttribute("aria-pressed",t==="erase");cv.style.cursor=t==="erase"?"cell":"crosshair"}
+$("tPen").onclick=()=>setTool("pen");$("tErase").onclick=()=>setTool("erase");
+function setPenOnly(v){penOnly=v;$("penOnly").setAttribute("aria-pressed",v);LS.set("vwpp.penOnly",v)}
+$("penOnly").onclick=()=>setPenOnly(!penOnly);setPenOnly(penOnly);
+
+function paper(c){
+  c.fillStyle="#fffef9";c.fillRect(0,0,CW,CH);
+  c.lineWidth=1.5;
+  if(tpl==="lined"){c.strokeStyle="rgba(41,120,200,.28)";for(let y=80;y<CH;y+=48){c.beginPath();c.moveTo(0,y);c.lineTo(CW,y);c.stroke()}c.strokeStyle="rgba(220,60,60,.35)";c.beginPath();c.moveTo(90,0);c.lineTo(90,CH);c.stroke()}
+  else if(tpl==="grid"){c.strokeStyle="rgba(41,120,200,.22)";for(let x=40;x<CW;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,CH);c.stroke()}for(let y=40;y<CH;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(CW,y);c.stroke()}}
+  else if(tpl==="atc"){
+    c.strokeStyle="rgba(10,31,68,.55)";c.fillStyle="rgba(10,31,68,.7)";c.font="700 30px Barlow,Arial,sans-serif";c.lineWidth=2.5;
+    const rows=[["CLRD TO",0,0,1600],["ROUTE",0,1,1600],["INIT ALT",0,2,520],["SQUAWK",1,2,520],["DEP FREQ",2,2,520],["ATIS / QNH",0,3,800],["RWY / SID",1,3,800]];
+    const y0=30,rh=130;
+    const lay={0:[30,y0],1:[30,y0+rh]};
+    // row 0-1 full width
+    const box=(x,y,w,h,l)=>{c.strokeRect(x,y,w,h);c.fillText(l,x+14,y+36)};
+    box(30,30,1540,120,"CLRD TO");box(30,170,1540,150,"ROUTE / SID");
+    box(30,340,500,120,"INIT ALT");box(550,340,500,120,"SQUAWK");box(1070,340,500,120,"DEP FREQ");
+    box(30,480,760,120,"ATIS / QNH");box(810,480,760,120,"RWY / TAXI");
+    c.strokeStyle="rgba(41,120,200,.25)";c.lineWidth=1.5;
+    for(let y=640;y<CH;y+=48){c.beginPath();c.moveTo(30,y);c.lineTo(CW-30,y);c.stroke()}
+    c.fillStyle="rgba(10,31,68,.7)";c.fillText("NOTES",30,625);
+  }
+}
+function segW(s,p){return Math.max(.8,s.w*(.4+(p[2]==null?.5:p[2])*1.2))}
+function drawStroke(c,s){
+  const p=s.p;if(!p.length)return;
+  c.strokeStyle=c.fillStyle=s.c;c.lineCap=c.lineJoin="round";
+  if(p.length===1){c.beginPath();c.arc(p[0][0],p[0][1],segW(s,p[0])/2,0,7);c.fill();return}
+  for(let i=1;i<p.length;i++){c.lineWidth=segW(s,p[i]);c.beginPath();c.moveTo(p[i-1][0],p[i-1][1]);c.lineTo(p[i][0],p[i][1]);c.stroke()}
+}
+function paint(){paper(cx);strokes.forEach(s=>drawStroke(cx,s));if(cur)drawStroke(cx,cur)}
+window.vwPaint=paint;
+let sT;function saveStrokes(){clearTimeout(sT);sT=setTimeout(()=>LS.set("vwpp.strokes",strokes),250)}
+const flush=()=>{clearTimeout(sT);LS.set("vwpp.strokes",strokes)};
+addEventListener("pagehide",flush);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
+function pt(e){const r=cv.getBoundingClientRect();return [Math.round((e.clientX-r.left)*CW/r.width),Math.round((e.clientY-r.top)*CH/r.height),e.pointerType==="pen"?Math.round((e.pressure||.5)*100)/100:.5]}
+function eraseAt(p){
+  const R=26,n=strokes.length;
+  strokes=strokes.filter(s=>!s.p.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<R));
+  if(strokes.length!==n){paint();saveStrokes()}
+}
+cv.addEventListener("pointerdown",e=>{
+  if(e.pointerType==="pen"&&!penOnly)setPenOnly(true);
+  if(e.pointerType==="touch"&&penOnly)return;
+  if(e.button>0&&e.pointerType==="mouse")return;
+  e.preventDefault();cv.setPointerCapture(e.pointerId);
+  hist.push(strokes.slice());if(hist.length>60)hist.shift();
+  const p=pt(e);
+  const er=tool==="erase"||(e.pointerType==="pen"&&e.buttons===32);
+  if(er){erasing=true;eraseAt(p)}else{erasing=false;cur={c:color,w:size,p:[p]};lastPt=p;drawStroke(cx,cur)}
+});
+cv.addEventListener("pointermove",e=>{
+  if(!(cur||erasing))return;
+  const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
+  (evs.length?evs:[e]).forEach(ev=>{
+    const p=pt(ev);
+    if(erasing){eraseAt(p);return}
+    if(Math.hypot(p[0]-lastPt[0],p[1]-lastPt[1])<1.5)return;
+    cur.p.push(p);
+    cx.strokeStyle=cur.c;cx.lineCap=cx.lineJoin="round";cx.lineWidth=segW(cur,p);cx.beginPath();cx.moveTo(lastPt[0],lastPt[1]);cx.lineTo(p[0],p[1]);cx.stroke();lastPt=p;
+  });
+});
+function endStroke(){
+  if(cur){strokes.push(cur);cur=null;saveStrokes()}
+  if(erasing){erasing=false;saveStrokes()}
+}
+["pointerup","pointercancel"].forEach(n=>cv.addEventListener(n,endStroke));
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+$("tUndo").onclick=()=>{if(!hist.length){toast("Nothing to undo");return}strokes=hist.pop();paint();saveStrokes()};
+$("tClear").onclick=()=>{if(!strokes.length)return;if(!confirm("Clear the whole kneeboard page?"))return;hist.push(strokes.slice());strokes=[];paint();saveStrokes()};
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"&&$("p-pad").classList.contains("on")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();$("tUndo").click()}});
+paint();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(paint);
+
+const fname=ext=>"VirtualWings-"+(($("callsign").value||"notes").replace(/[^A-Z0-9_-]/gi,""))+"-"+new Date().toISOString().slice(0,10)+"."+ext;
+$("expPng").onclick=()=>{paint();cv.toBlob(b=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=fname("png");a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast("PNG saved","ok")},"image/png")};
+
+</script>
+<script>
+"use strict";
+/* ---------- PDF ---------- */
+const clean=s=>String(s==null?"":s).replace(/[^\x20-\x7E]/g,"").trim();
+function exportPDF(){
+  if(!window.jspdf){toast("PDF library missing. Keep jspdf.umd.min.js next to index.html.","warn");return}
+  const {jsPDF}=window.jspdf;const pdf=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+  const W=297,M=12;
+  pdf.setFillColor(10,31,68);pdf.rect(0,0,W,22,"F");
+  pdf.setTextColor(255,255,255);pdf.setFont("helvetica","bold");pdf.setFontSize(16);pdf.text("VIRTUAL WINGS",M,13.5);
+  pdf.setTextColor(41,168,255);pdf.text("A320 PILOT PAD",M+52,13.5);
+  pdf.setTextColor(200,215,240);pdf.setFont("helvetica","normal");pdf.setFontSize(9);
+  pdf.text(new Date().toUTCString().replace("GMT","UTC"),W-M,13.5,{align:"right"});
+  let y=32;
+  const secs=[["FLIGHT DATA",CFG.fd],["WEATHER",CFG.wx],["WEIGHTS & FUEL ("+clean($("units").textContent)+")",CFG.wt],["TAKEOFF",CFG.to],["LANDING",CFG.ld]];
+  secs.forEach(([title,items])=>{
+    const small=items.filter(c=>!c.ta&&clean($(c.id).value)),long=items.filter(c=>c.ta&&clean($(c.id).value));
+    if(!small.length&&!long.length)return;
+    if(y>180){pdf.addPage();y=20}
+    pdf.setFont("helvetica","bold");pdf.setFontSize(10);pdf.setTextColor(10,100,180);pdf.text(title,M,y);
+    pdf.setDrawColor(41,168,255);pdf.setLineWidth(.3);pdf.line(M,y+1.8,W-M,y+1.8);y+=7;
+    const colW=(W-2*M)/6;
+    small.forEach((c,i)=>{
+      const col=i%6,x=M+col*colW,yy=y+Math.floor(i/6)*11;
+      pdf.setFont("helvetica","normal");pdf.setFontSize(7);pdf.setTextColor(110,125,150);pdf.text(c.label.toUpperCase(),x,yy);
+      pdf.setFont("helvetica","bold");pdf.setFontSize(11);pdf.setTextColor(10,20,40);pdf.text(clean($(c.id).value),x,yy+5);
+    });
+    y+=Math.ceil(small.length/6)*11;
+    long.forEach(c=>{
+      pdf.setFont("helvetica","normal");pdf.setFontSize(7);pdf.setTextColor(110,125,150);pdf.text(c.label.toUpperCase(),M,y);
+      pdf.setFont("helvetica","bold");pdf.setFontSize(10);pdf.setTextColor(10,20,40);
+      const ln=pdf.splitTextToSize(clean($(c.id).value),W-2*M);pdf.text(ln,M,y+5);y+=5+ln.length*4.6+3;
+    });
+    y+=3;
+  });
+  const rem=clean($("remarks").value);
+  if(rem){
+    if(y>175){pdf.addPage();y=20}
+    pdf.setFont("helvetica","bold");pdf.setFontSize(10);pdf.setTextColor(10,100,180);pdf.text("REMARKS",M,y);pdf.line(M,y+1.8,W-M,y+1.8);y+=7;
+    pdf.setFont("helvetica","normal");pdf.setTextColor(10,20,40);const ln=pdf.splitTextToSize(rem,W-2*M);pdf.text(ln,M,y);y+=ln.length*4.6;
+  }
+  const blk=$("blk").textContent,air=$("air").textContent;
+  if(blk!=="--:--"||air!=="--:--"){
+    if(y>190){pdf.addPage();y=20}
+    pdf.setFont("helvetica","bold");pdf.setFontSize(10);pdf.setTextColor(10,100,180);pdf.text("TIMES (UTC)   OUT "+clean($("tOut").value)+"   OFF "+clean($("tOff").value)+"   ON "+clean($("tOn").value)+"   IN "+clean($("tIn").value)+"   |   BLOCK "+blk+"   AIR "+air,M,y+6);
+  }
+  if(strokes.length){
+    paint();pdf.addPage();
+    pdf.setFillColor(10,31,68);pdf.rect(0,0,W,12,"F");pdf.setTextColor(255,255,255);pdf.setFont("helvetica","bold");pdf.setFontSize(10);pdf.text("KNEEBOARD NOTES  "+clean($("callsign").value),M,8);
+    const iw=W-2*M,ih=iw*CH/CW;pdf.addImage(cv.toDataURL("image/jpeg",.92),"JPEG",M,16,iw,ih);
+  }
+  const n=pdf.getNumberOfPages();
+  for(let i=1;i<=n;i++){pdf.setPage(i);pdf.setFont("helvetica","normal");pdf.setFontSize(7.5);pdf.setTextColor(130,140,160);pdf.text("Virtual Wings - www.virtualwingsbycenk.com - For flight simulation use only",M,205);pdf.text(i+" / "+n,W-M,205,{align:"right"})}
+  pdf.save(fname("pdf"));toast("PDF exported","ok");
+}
+$("expPdf").onclick=exportPDF;
+
+</script>
+<script>
+"use strict";
+/* ---------- checklist ---------- */
+const CL=[
+ ["PREFLIGHT",["Batteries – ON","External power – AVAIL / ON","ADIRS – NAV","Fuel quantity – CHECKED","Flight plan – ENTERED","Takeoff data – COMPUTED"]],
+ ["BEFORE START",["Cockpit preparation – COMPLETE","Seat belts – ON","Doors – CLOSED","Beacon – ON","Parking brake – SET","Thrust levers – IDLE"]],
+ ["ENGINE START",["Engine mode – IGN / START","ENG MASTER – ON","Engine parameters – CHECKED","Anti-ice – AS REQUIRED"]],
+ ["AFTER START",["Engine mode – NORM","APU bleed – OFF","Flaps – SET FOR TAKEOFF","Flight controls – CHECKED","Trim – SET","Autobrake – RTO"]],
+ ["BEFORE TAKEOFF",["Takeoff briefing – DONE","Strobe – ON","Transponder – TA/RA","Takeoff lights – ON","T.O. MEMO – NO BLUE","Cabin – READY"]],
+ ["AFTER TAKEOFF",["Landing gear – UP","Flaps – RETRACTED","Spoilers – RETRACTED","Packs – ON","Climb – SET"]],
+ ["CRUISE",["Altimeters – STD ABOVE TA","Fuel – MONITORED","Landing lights – OFF"]],
+ ["APPROACH",["ATIS / weather – COPIED","Landing data – COMPUTED","Altimeters – QNH BELOW TL","Seat belts – ON","Autobrake – SET","Approach – BRIEFED"]],
+ ["LANDING",["Landing gear – DOWN","Flaps – SET","Spoilers – ARMED","LDG MEMO – NO BLUE"]],
+ ["AFTER LANDING",["Spoilers – RETRACTED","Flaps – RETRACTED","Transponder – STBY","APU – START","Lights – AS REQUIRED"]],
+ ["PARKING",["Parking brake – SET","Engines – OFF","Beacon – OFF","Seat belts – OFF","Fuel pumps – OFF","ADIRS – OFF"]]
+];
+let chk=LS.get("vwpp.chk",{});
+function buildChk(){
+  const w=$("chkWrap");w.innerHTML="";
+  CL.forEach(([t,items],gi)=>{
+    const d=document.createElement("div");d.className="cl";
+    const h=document.createElement("h3");h.innerHTML=`<span>${t}</span><em></em>`;d.appendChild(h);
+    items.forEach((it,ii)=>{
+      const k=gi+"-"+ii;const l=document.createElement("label");
+      const i=document.createElement("input");i.type="checkbox";i.checked=!!chk[k];
+      i.onchange=()=>{if(i.checked)chk[k]=1;else delete chk[k];LS.set("vwpp.chk",chk);upd()};
+      const s=document.createElement("span");s.textContent=it;l.append(i,s);d.appendChild(l);
+    });
+    function upd(){const n=items.filter((_,ii)=>chk[gi+"-"+ii]).length;h.lastChild.textContent=n+" / "+items.length;d.classList.toggle("done",n===items.length)}
+    upd();w.appendChild(d);
+  });
+}
+buildChk();
+$("chkReset").onclick=()=>{chk={};LS.set("vwpp.chk",chk);buildChk()};
+
+</script>
+<script>
+"use strict";
+/* ---------- new flight ---------- */
+$("newFlight").onclick=()=>{
+  if(!confirm("Clear all flight fields, times and checklists? (Your kneeboard drawing and SimBrief ID are kept.)"))return;
+  const keep=$("simbriefID").value;
+  FIELD_IDS.forEach(id=>{const e=$(id);if(e)e.value=""});$("simbriefID").value=keep;
+  chk={};LS.set("vwpp.chk",chk);buildChk();saveFields();calc();toast("New flight ready","ok");
+};
+
+</script>
+<script>
+"use strict";
+/* ---------- screen on / battery ---------- */
+let wl=null;
+async function setWake(on){
+  try{
+    if(on){if(!navigator.wakeLock)throw 0;wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",()=>{});}
+    else if(wl){await wl.release();wl=null}
+    $("wakeBtn").classList.toggle("on",on);$("wakeBtn").setAttribute("aria-pressed",on);
+  }catch(e){toast("Keep-screen-on is not supported on this device","warn");$("wakeBtn").classList.remove("on")}
+}
+$("wakeBtn").onclick=()=>setWake(!$("wakeBtn").classList.contains("on"));
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&$("wakeBtn").classList.contains("on"))setWake(true)});
+if(navigator.getBattery)navigator.getBattery().then(b=>{
+  const u=()=>{$("batt").hidden=false;$("batt").textContent="BAT "+Math.round(b.level*100)+"%"+(b.charging?" ⚡":"")};u();b.onlevelchange=b.onchargingchange=u;
+}).catch(()=>{});
+
+</script>
+<script>
+"use strict";
+/* ---------- init ---------- */
+calc();
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+</script>
+</body>
+</html>

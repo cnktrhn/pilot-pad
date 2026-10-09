@@ -1,0 +1,19 @@
+Virtual Wings A320 Pilot Pad v1.1.0 - Credits and third-party licenses
+Kredi ve ucuncu taraf lisanslari
+www.virtualwingsbycenk.com
+
+1) jsPDF 2.5.1 (PDF export) - MIT License. See jspdf-LICENSE.txt in this package.
+   https://github.com/parallax/jsPDF
+
+2) FONT / Yazi tipi
+   Barlow and Barlow Semi Condensed by Jeremy Tribby - SIL Open Font License 1.1.
+   Loaded online from Google Fonts when available; font files are not included.
+
+3) SIMBRIEF
+   The import button reads your own flight plan through the public SimBrief
+   fetcher API (simbrief.com). SimBrief is a third-party service and is not
+   affiliated with this project.
+
+4) TRADEMARKS / Ticari markalar
+   Product names (Airbus, Fenix, Microsoft Flight Simulator, etc.) belong to
+   their owners and are used only for identification.
