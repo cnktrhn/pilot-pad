@@ -22,7 +22,7 @@
   --fn:"Barlow","Segoe UI",system-ui,Arial,sans-serif; --fc:"Barlow Semi Condensed","Barlow",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
-html{overscroll-behavior-y:none}
+
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fn);-webkit-text-size-adjust:100%}
 body{min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -105,9 +105,9 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 .sw[aria-pressed=true]{border-color:var(--sky);outline-color:#fff}
 .tools select{width:auto;padding:9px 30px 9px 12px;font-size:14px}
 .tools input[type=range]{width:96px;padding:0;accent-color:var(--sky);border:0;background:transparent;box-shadow:none}
-.paper{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.paper{width:100%;margin:0 auto;position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35)}
 #txtEd{position:absolute;z-index:5;min-width:120px;max-width:90%;padding:0;margin:0;border:0;border-radius:2px;background:rgba(255,255,255,.55);box-shadow:0 0 0 1.5px var(--sky);font-family:"Barlow","Segoe UI",Arial,sans-serif;font-weight:600;line-height:1.25;resize:none;overflow:hidden;outline:none;font-size:16px}
-#pad{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none}
+#pad{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
 
 /* checklist */
 .chk{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
@@ -420,7 +420,7 @@ let lastPt=null;
 COLORS.forEach(([c,n])=>{const b=document.createElement("button");b.className="sw";b.style.background=c;b.title=n;b.setAttribute("aria-label",n);b.setAttribute("aria-pressed",c===color);b.onclick=()=>{color=c;setTool("pen");LS.set("vwpp.color",c);[...$("cols").children].forEach(x=>x.setAttribute("aria-pressed",x===b))};$("cols").appendChild(b)});
 $("size").value=size;$("size").oninput=e=>{size=+e.target.value;LS.set("vwpp.size",size)};
 $("tpl").value=tpl;$("tpl").onchange=e=>{tpl=e.target.value;LS.set("vwpp.tpl",tpl);paint()};
-function setTool(t){tool=t;$("tPen").setAttribute("aria-pressed",t==="pen");$("tErase").setAttribute("aria-pressed",t==="erase");$("tText").setAttribute("aria-pressed",t==="text");cv.style.cursor=t==="erase"?"cell":(t==="text"?"text":"crosshair");closeEditor(true)}
+function setTool(t){tool=t;$("tPen").setAttribute("aria-pressed",t==="pen");$("tErase").setAttribute("aria-pressed",t==="erase");$("tText").setAttribute("aria-pressed",t==="text");cv.style.touchAction=t==="erase"?"none":"pan-y";cv.style.cursor=t==="erase"?"cell":(t==="text"?"text":"crosshair");closeEditor(true)}
 $("tPen").onclick=()=>setTool("pen");$("tErase").onclick=()=>setTool("erase");$("tText").onclick=()=>setTool("text");
 function setPenOnly(v){penOnly=v;$("penOnly").setAttribute("aria-pressed",v);LS.set("vwpp.penOnly",v);$("padHint").textContent=(v?"Pen only: Apple Pencil, stylus and mouse draw; finger touches are ignored.":"Finger mode: tap the page with your finger and type with the keyboard. Apple Pencil, stylus and mouse still draw.")+" Your notes are saved automatically in this browser."}
 $("penOnly").onclick=()=>setPenOnly(!penOnly);setPenOnly(penOnly);
@@ -473,7 +473,7 @@ function eraseAt(p){
 }
 cv.addEventListener("pointerdown",e=>{
   if(e.pointerType==="pen"&&!penOnly&&!LS.get("vwpp.penAuto",false)){LS.set("vwpp.penAuto",true);setPenOnly(true)}
-  if(e.pointerType==="touch"&&tool!=="erase"){sc={id:e.pointerId,y:(e.screenY||e.clientY),top:window.scrollY,moved:false,dy:0,raf:0};if(!penOnly)tapPt=pt(e);return}
+  if(e.pointerType==="touch"&&tool!=="erase"){if(!penOnly)tapPt=pt(e);return}
   if(e.pointerType==="touch"&&penOnly)return;
   if(e.button>0&&e.pointerType==="mouse")return;
   if(tool==="text"){tapPt=pt(e);return}
@@ -484,7 +484,6 @@ cv.addEventListener("pointerdown",e=>{
   if(er){erasing=true;eraseAt(p)}else{erasing=false;cur={c:color,w:size,p:[p]};lastPt=p;drawStroke(cx,cur)}
 });
 cv.addEventListener("pointermove",e=>{
-  if(sc&&e.pointerId===sc.id){const dy=sc.y-(e.screenY||e.clientY);if(Math.abs(dy)>8){sc.moved=true;tapPt=null}if(sc.moved){sc.dy=dy;if(!sc.raf){const k=sc;k.raf=requestAnimationFrame(()=>{k.raf=0;window.scrollTo(0,k.top+k.dy)})}}return}
   if(!(cur||erasing))return;
   const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
   (evs.length?evs:[e]).forEach(ev=>{
@@ -640,5 +639,5 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
 calc();
 if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register("sw.js").catch(()=>{})}
 </script>
-</body>
+<div style="height:40vh" aria-hidden="true"></div></body>
 </html>
