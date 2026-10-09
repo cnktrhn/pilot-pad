@@ -22,6 +22,7 @@
   --fn:"Barlow","Segoe UI",system-ui,Arial,sans-serif; --fc:"Barlow Semi Condensed","Barlow",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
+html{overscroll-behavior-y:none}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fn);-webkit-text-size-adjust:100%}
 body{min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -44,7 +45,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .chip[hidden]{display:none}
 
 /* tabs */
-.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;padding:8px 14px;background:rgba(6,20,46,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;padding:8px 14px;background:#06142e;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--line);overflow-x:auto}
 .tab{-webkit-appearance:none;appearance:none;-webkit-user-select:none;user-select:none;flex:1 0 auto;min-width:110px;text-align:center;padding:11px 16px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--mute);font-family:var(--fc);font-weight:700;font-size:15px;letter-spacing:.14em;cursor:pointer}
 .tab:hover{color:var(--text)}
 .tab[aria-selected=true]{background:var(--panel2);color:#fff;border-color:var(--sky);box-shadow:0 0 0 1px rgba(41,168,255,.25) inset,0 6px 18px rgba(41,168,255,.12)}
@@ -472,7 +473,7 @@ function eraseAt(p){
 }
 cv.addEventListener("pointerdown",e=>{
   if(e.pointerType==="pen"&&!penOnly&&!LS.get("vwpp.penAuto",false)){LS.set("vwpp.penAuto",true);setPenOnly(true)}
-  if(e.pointerType==="touch"&&tool!=="erase"){sc={id:e.pointerId,y:e.clientY,top:window.scrollY,moved:false};if(!penOnly)tapPt=pt(e);return}
+  if(e.pointerType==="touch"&&tool!=="erase"){sc={id:e.pointerId,y:(e.screenY||e.clientY),top:window.scrollY,moved:false,dy:0,raf:0};if(!penOnly)tapPt=pt(e);return}
   if(e.pointerType==="touch"&&penOnly)return;
   if(e.button>0&&e.pointerType==="mouse")return;
   if(tool==="text"){tapPt=pt(e);return}
@@ -483,7 +484,7 @@ cv.addEventListener("pointerdown",e=>{
   if(er){erasing=true;eraseAt(p)}else{erasing=false;cur={c:color,w:size,p:[p]};lastPt=p;drawStroke(cx,cur)}
 });
 cv.addEventListener("pointermove",e=>{
-  if(sc&&e.pointerId===sc.id){const dy=sc.y-e.clientY;if(Math.abs(dy)>8){sc.moved=true;tapPt=null}if(sc.moved)window.scrollTo(0,sc.top+dy);return}
+  if(sc&&e.pointerId===sc.id){const dy=sc.y-(e.screenY||e.clientY);if(Math.abs(dy)>8){sc.moved=true;tapPt=null}if(sc.moved){sc.dy=dy;if(!sc.raf){const k=sc;k.raf=requestAnimationFrame(()=>{k.raf=0;window.scrollTo(0,k.top+k.dy)})}}return}
   if(!(cur||erasing))return;
   const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
   (evs.length?evs:[e]).forEach(ev=>{
