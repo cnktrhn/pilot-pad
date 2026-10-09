@@ -105,6 +105,7 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 .tools select{width:auto;padding:9px 30px 9px 12px;font-size:14px}
 .tools input[type=range]{width:96px;padding:0;accent-color:var(--sky);border:0;background:transparent;box-shadow:none}
 .paper{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+#txtEd{position:absolute;z-index:5;min-width:120px;max-width:90%;padding:0;margin:0;border:0;border-radius:2px;background:rgba(255,255,255,.55);box-shadow:0 0 0 1.5px var(--sky);font-family:"Barlow","Segoe UI",Arial,sans-serif;font-weight:600;line-height:1.25;resize:none;overflow:hidden;outline:none;font-size:16px}
 #pad{display:block;width:100%;height:auto;aspect-ratio:16/10;touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none}
 
 /* checklist */
@@ -212,18 +213,19 @@ footer a{color:var(--sky2);text-decoration:none}
     <div class="grp">
       <button class="tbtn" id="tPen" aria-pressed="true">PEN</button>
       <button class="tbtn" id="tErase" aria-pressed="false">ERASER</button>
+      <button class="tbtn" id="tText" aria-pressed="false" title="Tap the page and type with the keyboard">TEXT</button>
     </div>
     <div class="grp" id="cols"></div>
     <div class="grp"><input type="range" id="size" min="1" max="12" value="3" aria-label="Pen size"></div>
     <div class="grp"><button class="tbtn" id="tUndo">UNDO</button><button class="tbtn" id="tClear">CLEAR</button></div>
-    <div class="grp"><button class="tbtn" id="penOnly" aria-pressed="false" title="Ignore finger touches while drawing (palm rejection)">PEN ONLY</button></div>
+    <div class="grp"><button class="tbtn" id="penOnly" aria-pressed="false" title="ON: only Apple Pencil / stylus draws, fingers are ignored. OFF: tap with a finger to type with the keyboard.">PEN ONLY</button></div>
     <select id="tpl" aria-label="Paper"><option value="blank">Blank</option><option value="lined">Lined</option><option value="grid">Grid</option><option value="atc">ATC copy</option></select>
     <div class="sp"></div>
     <button class="btn ghost" id="expPng">SAVE PNG</button>
     <button class="btn" id="expPdf">EXPORT PDF</button>
   </div>
-  <div class="paper"><canvas id="pad" width="1600" height="1000"></canvas></div>
-  <p class="hint">Works with Apple Pencil, Surface Pen, stylus, mouse and touch. Your notes are saved automatically in this browser.</p>
+  <div class="paper" id="padWrap"><canvas id="pad" width="1600" height="1000"></canvas></div>
+  <p class="hint" id="padHint">Your notes are saved automatically in this browser.</p>
 </section>
 
 <!-- CHECKLIST -->
@@ -237,7 +239,7 @@ footer a{color:var(--sky2);text-decoration:none}
 </main>
 
 <footer>
-  <div>Virtual Wings A320 Pilot Pad v1.1.1 · Free for MSFS 2020 &amp; 2024 · <a href="https://www.virtualwingsbycenk.com" target="_blank" rel="noopener">www.virtualwingsbycenk.com</a></div>
+  <div>Virtual Wings A320 Pilot Pad v1.2.0 · Free for MSFS 2020 &amp; 2024 · <a href="https://www.virtualwingsbycenk.com" target="_blank" rel="noopener">www.virtualwingsbycenk.com</a></div>
   <div>For flight simulation only. Not for real-world navigation. Not affiliated with Microsoft, Asobo, Airbus, Fenix or SimBrief.</div>
   <div style="margin-top:10px"><button class="btn ghost" id="newFlight" style="font-size:13px;padding:8px 14px">NEW FLIGHT (CLEAR ALL FIELDS)</button></div>
 </footer>
@@ -417,9 +419,9 @@ let lastPt=null;
 COLORS.forEach(([c,n])=>{const b=document.createElement("button");b.className="sw";b.style.background=c;b.title=n;b.setAttribute("aria-label",n);b.setAttribute("aria-pressed",c===color);b.onclick=()=>{color=c;setTool("pen");LS.set("vwpp.color",c);[...$("cols").children].forEach(x=>x.setAttribute("aria-pressed",x===b))};$("cols").appendChild(b)});
 $("size").value=size;$("size").oninput=e=>{size=+e.target.value;LS.set("vwpp.size",size)};
 $("tpl").value=tpl;$("tpl").onchange=e=>{tpl=e.target.value;LS.set("vwpp.tpl",tpl);paint()};
-function setTool(t){tool=t;$("tPen").setAttribute("aria-pressed",t==="pen");$("tErase").setAttribute("aria-pressed",t==="erase");cv.style.cursor=t==="erase"?"cell":"crosshair"}
-$("tPen").onclick=()=>setTool("pen");$("tErase").onclick=()=>setTool("erase");
-function setPenOnly(v){penOnly=v;$("penOnly").setAttribute("aria-pressed",v);LS.set("vwpp.penOnly",v)}
+function setTool(t){tool=t;$("tPen").setAttribute("aria-pressed",t==="pen");$("tErase").setAttribute("aria-pressed",t==="erase");$("tText").setAttribute("aria-pressed",t==="text");cv.style.cursor=t==="erase"?"cell":(t==="text"?"text":"crosshair");closeEditor(true)}
+$("tPen").onclick=()=>setTool("pen");$("tErase").onclick=()=>setTool("erase");$("tText").onclick=()=>setTool("text");
+function setPenOnly(v){penOnly=v;$("penOnly").setAttribute("aria-pressed",v);LS.set("vwpp.penOnly",v);$("padHint").textContent=(v?"Pen only: Apple Pencil, stylus and mouse draw; finger touches are ignored.":"Finger mode: tap the page with your finger and type with the keyboard. Apple Pencil, stylus and mouse still draw.")+" Your notes are saved automatically in this browser."}
 $("penOnly").onclick=()=>setPenOnly(!penOnly);setPenOnly(penOnly);
 
 function paper(c){
@@ -444,6 +446,7 @@ function paper(c){
 }
 function segW(s,p){return Math.max(.8,s.w*(.4+(p[2]==null?.5:p[2])*1.2))}
 function drawStroke(c,s){
+  if(s.txt!=null){c.save();c.fillStyle=s.c;c.font="600 "+s.fs+"px Barlow,\"Segoe UI\",Arial,sans-serif";c.textBaseline="top";s.txt.split("\n").forEach((l,i)=>c.fillText(l,s.x,s.y+i*s.fs*1.25));c.restore();return}
   const p=s.p;if(!p.length)return;
   c.strokeStyle=c.fillStyle=s.c;c.lineCap=c.lineJoin="round";
   if(p.length===1){c.beginPath();c.arc(p[0][0],p[0][1],segW(s,p[0])/2,0,7);c.fill();return}
@@ -455,15 +458,22 @@ let sT;function saveStrokes(){clearTimeout(sT);sT=setTimeout(()=>LS.set("vwpp.st
 const flush=()=>{clearTimeout(sT);LS.set("vwpp.strokes",strokes)};
 addEventListener("pagehide",flush);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
 function pt(e){const r=cv.getBoundingClientRect();return [Math.round((e.clientX-r.left)*CW/r.width),Math.round((e.clientY-r.top)*CH/r.height),e.pointerType==="pen"?Math.round((e.pressure||.5)*100)/100:.5]}
+function hitText(s,p,R){cx.save();cx.font="600 "+s.fs+"px Barlow,Arial,sans-serif";const ls=s.txt.split("\n"),w=Math.max.apply(null,ls.map(l=>cx.measureText(l).width));cx.restore();return p[0]>=s.x-R/2&&p[0]<=s.x+w+R/2&&p[1]>=s.y-R/2&&p[1]<=s.y+ls.length*s.fs*1.25+R/2}
+let tapPt=null,ed=null;
+function closeEditor(commit){if(!ed)return;const e=ed;ed=null;const v=e.t.value.replace(/\s+$/,"");e.t.remove();if(commit&&v){hist.push(strokes.slice());if(hist.length>60)hist.shift();strokes.push({txt:v,x:e.x,y:e.y,fs:e.fs,c:e.c});saveStrokes();paint()}}
+function openEditor(x,y){closeEditor(true);const sc=cv.clientWidth/CW,fs=18+size*4;const t=document.createElement("textarea");t.id="txtEd";t.rows=1;t.setAttribute("autocapitalize","sentences");t.placeholder="Type…";t.style.left=(x/CW*100)+"%";t.style.top=(y/CH*100)+"%";t.style.fontSize="max(16px,"+(fs*sc)+"px)";t.style.color=color;$("padWrap").appendChild(t);ed={t:t,x:x,y:y,fs:fs,c:color};t.addEventListener("input",()=>{t.style.height="auto";t.style.height=t.scrollHeight+"px";t.style.width=Math.max(120,t.scrollWidth+4)+"px"});t.addEventListener("blur",()=>closeEditor(true));t.addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();closeEditor(false)}});t.focus()}
+cv.addEventListener("click",()=>{if(!tapPt)return;const q=tapPt;tapPt=null;openEditor(q[0],q[1])});
+cv.addEventListener("pointercancel",()=>{tapPt=null});
 function eraseAt(p){
   const R=26,n=strokes.length;
-  strokes=strokes.filter(s=>!s.p.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<R));
+  strokes=strokes.filter(s=>s.txt!=null?!hitText(s,p,R):!s.p.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<R));
   if(strokes.length!==n){paint();saveStrokes()}
 }
 cv.addEventListener("pointerdown",e=>{
-  if(e.pointerType==="pen"&&!penOnly)setPenOnly(true);
+  if(e.pointerType==="pen"&&!penOnly&&!LS.get("vwpp.penAuto",false)){LS.set("vwpp.penAuto",true);setPenOnly(true)}
   if(e.pointerType==="touch"&&penOnly)return;
   if(e.button>0&&e.pointerType==="mouse")return;
+  if(tool==="text"||(e.pointerType==="touch"&&!penOnly&&tool!=="erase")){tapPt=pt(e);return}
   e.preventDefault();cv.setPointerCapture(e.pointerId);
   hist.push(strokes.slice());if(hist.length>60)hist.shift();
   const p=pt(e);

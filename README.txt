@@ -1,5 +1,5 @@
 =====================================================================
- VIRTUAL WINGS - A320 PILOT PAD  v1.1.1
+ VIRTUAL WINGS - A320 PILOT PAD  v1.2.0
  Free web EFB / kneeboard for MSFS 2020 & 2024
  www.virtualwingsbycenk.com
 =====================================================================
@@ -53,6 +53,11 @@ GOOD TO KNOW
  - For flight simulation only. Not for real-world navigation.
 
 CHANGELOG
+ v1.2.0 - Kneeboard: TEXT tool and finger-to-type mode. With "Pen only" ON,
+          Apple Pencil / stylus draws and fingers are ignored. With "Pen only"
+          OFF, tap the page with a finger and type with the keyboard (pencil and
+          mouse still draw). Typed text can be undone, erased and is included
+          in PDF/PNG export.
  v1.1.1 - iPad/Safari fix: section tabs (Performance, Kneeboard,
           Checklist) now open reliably on touch; app parts load
           independently so one problem cannot block the others.
@@ -124,6 +129,10 @@ BILMENIZ GEREKENLER
  - Sadece ucus simulasyonu icindir. Gercek navigasyonda kullanilamaz.
 
 SURUM NOTLARI
+ v1.2.0 - Kneeboard: TEXT araci ve parmakla yazma modu. "Pen only" ACIKKEN
+          Apple Pencil / stylus cizer, parmaklar yoksayilir. "Pen only" KAPALIYKEN
+          sayfaya parmakla dokunup klavyeyle yazabilirsiniz (kalem ve fare yine
+          cizer). Yazilar geri alinabilir, silinebilir ve PDF/PNG ciktisina girer.
  v1.1.1 - iPad/Safari duzeltmesi: ust sekmeler (Performance, Kneeboard,
           Checklist) dokunmatikte sorunsuz aciliyor; bolumler birbirinden
           bagimsiz yukleniyor.
