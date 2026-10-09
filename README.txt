@@ -57,7 +57,7 @@ CHANGELOG
           Apple Pencil / stylus draws and fingers are ignored. With "Pen only"
           OFF, tap the page with a finger and type with the keyboard (pencil and
           mouse still draw). Typed text can be undone, erased and is included
-          in PDF/PNG export.
+          in PDF/PNG export. Dragging a finger on the page scrolls it.
  v1.1.1 - iPad/Safari fix: section tabs (Performance, Kneeboard,
           Checklist) now open reliably on touch; app parts load
           independently so one problem cannot block the others.
@@ -132,7 +132,7 @@ SURUM NOTLARI
  v1.2.0 - Kneeboard: TEXT araci ve parmakla yazma modu. "Pen only" ACIKKEN
           Apple Pencil / stylus cizer, parmaklar yoksayilir. "Pen only" KAPALIYKEN
           sayfaya parmakla dokunup klavyeyle yazabilirsiniz (kalem ve fare yine
-          cizer). Yazilar geri alinabilir, silinebilir ve PDF/PNG ciktisina girer.
+          cizer). Yazilar geri alinabilir, silinebilir ve PDF/PNG ciktisina girer. Sayfada parmakla surukleyince sayfa kayar.
  v1.1.1 - iPad/Safari duzeltmesi: ust sekmeler (Performance, Kneeboard,
           Checklist) dokunmatikte sorunsuz aciliyor; bolumler birbirinden
           bagimsiz yukleniyor.

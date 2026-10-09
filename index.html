@@ -459,11 +459,12 @@ const flush=()=>{clearTimeout(sT);LS.set("vwpp.strokes",strokes)};
 addEventListener("pagehide",flush);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flush()});
 function pt(e){const r=cv.getBoundingClientRect();return [Math.round((e.clientX-r.left)*CW/r.width),Math.round((e.clientY-r.top)*CH/r.height),e.pointerType==="pen"?Math.round((e.pressure||.5)*100)/100:.5]}
 function hitText(s,p,R){cx.save();cx.font="600 "+s.fs+"px Barlow,Arial,sans-serif";const ls=s.txt.split("\n"),w=Math.max.apply(null,ls.map(l=>cx.measureText(l).width));cx.restore();return p[0]>=s.x-R/2&&p[0]<=s.x+w+R/2&&p[1]>=s.y-R/2&&p[1]<=s.y+ls.length*s.fs*1.25+R/2}
-let tapPt=null,ed=null;
+let tapPt=null,ed=null,sc=null;
 function closeEditor(commit){if(!ed)return;const e=ed;ed=null;const v=e.t.value.replace(/\s+$/,"");e.t.remove();if(commit&&v){hist.push(strokes.slice());if(hist.length>60)hist.shift();strokes.push({txt:v,x:e.x,y:e.y,fs:e.fs,c:e.c});saveStrokes();paint()}}
 function openEditor(x,y){closeEditor(true);const sc=cv.clientWidth/CW,fs=18+size*4;const t=document.createElement("textarea");t.id="txtEd";t.rows=1;t.setAttribute("autocapitalize","sentences");t.placeholder="Type…";t.style.left=(x/CW*100)+"%";t.style.top=(y/CH*100)+"%";t.style.fontSize="max(16px,"+(fs*sc)+"px)";t.style.color=color;$("padWrap").appendChild(t);ed={t:t,x:x,y:y,fs:fs,c:color};t.addEventListener("input",()=>{t.style.height="auto";t.style.height=t.scrollHeight+"px";t.style.width=Math.max(120,t.scrollWidth+4)+"px"});t.addEventListener("blur",()=>closeEditor(true));t.addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();closeEditor(false)}});t.focus()}
 cv.addEventListener("click",()=>{if(!tapPt)return;const q=tapPt;tapPt=null;openEditor(q[0],q[1])});
-cv.addEventListener("pointercancel",()=>{tapPt=null});
+cv.addEventListener("pointercancel",()=>{tapPt=null;sc=null});
+cv.addEventListener("pointerup",()=>{sc=null});
 function eraseAt(p){
   const R=26,n=strokes.length;
   strokes=strokes.filter(s=>s.txt!=null?!hitText(s,p,R):!s.p.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<R));
@@ -471,9 +472,10 @@ function eraseAt(p){
 }
 cv.addEventListener("pointerdown",e=>{
   if(e.pointerType==="pen"&&!penOnly&&!LS.get("vwpp.penAuto",false)){LS.set("vwpp.penAuto",true);setPenOnly(true)}
+  if(e.pointerType==="touch"&&tool!=="erase"){sc={id:e.pointerId,y:e.clientY,top:window.scrollY,moved:false};if(!penOnly)tapPt=pt(e);return}
   if(e.pointerType==="touch"&&penOnly)return;
   if(e.button>0&&e.pointerType==="mouse")return;
-  if(tool==="text"||(e.pointerType==="touch"&&!penOnly&&tool!=="erase")){tapPt=pt(e);return}
+  if(tool==="text"){tapPt=pt(e);return}
   e.preventDefault();cv.setPointerCapture(e.pointerId);
   hist.push(strokes.slice());if(hist.length>60)hist.shift();
   const p=pt(e);
@@ -481,6 +483,7 @@ cv.addEventListener("pointerdown",e=>{
   if(er){erasing=true;eraseAt(p)}else{erasing=false;cur={c:color,w:size,p:[p]};lastPt=p;drawStroke(cx,cur)}
 });
 cv.addEventListener("pointermove",e=>{
+  if(sc&&e.pointerId===sc.id){const dy=sc.y-e.clientY;if(Math.abs(dy)>8){sc.moved=true;tapPt=null}if(sc.moved)window.scrollTo(0,sc.top+dy);return}
   if(!(cur||erasing))return;
   const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
   (evs.length?evs:[e]).forEach(ev=>{
